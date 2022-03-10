@@ -1,32 +1,66 @@
+
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: VPC with public subnet
   
 Parameters: 
   VpcCIDR: 
-    Default: 10.1.0.0/16
+    Default: 10.0.0.0/16
     Description: Enter the IP range (CIDR notation) for VPC
     Type: String
   
-  PublicSubnetACIDR:
-    Default: 10.1.10.0/24
-    Description: Enter the IP range (CIDR notation) for public subnet A
+  PublicSubnet1CIDR:
+    Default: 10.0.0.0/24
+    Description: Enter the IP range (CIDR notation) for public subnet 1
     Type: String
 
-  PublicSubnetBCIDR:
-    Default: 10.1.20.0/24
-    Description: Enter the IP range (CIDR notation) for public subnet B
+  PublicSubnet2CIDR:
+    Default: 10.0.1.0/24
+    Description: Enter the IP range (CIDR notation) for public subnet 2
     Type: String
 
-  PublicSubnetCCIDR:
-    Default: 10.1.50.0/24
-    Description: Enter the IP range (CIDR notation) for public subnet C
+  PublicSubnet3CIDR:
+    Default: 10.0.2.0/24
+    Description: Enter the IP range (CIDR notation) for public subnet 3
     Type: String
- 
+  
+  #Private subnet1 
+  PrivateSubnet1CIDR:
+    Default: 10.0.6.0/24
+    Description: Enter the IP range (CIDR notation) for private subnet 1
+    Type: String
+
+  #Private subnet2
+  PrivateSubnet2CIDR:
+    Default: 10.0.4.0/24
+    Description: Enter the IP range (CIDR notation) for private subnet 2
+    Type: String
+
+  #Private subnet3
+  PrivateSubnet3CIDR:
+    Default: 10.0.5.0/24
+    Description: Enter the IP range (CIDR notation) for private subnet 3
+    Type: String
+
   AMIImage:
+    Default: ami-007405ff7d42df2f6
     Type: String
-    Default: ami-08bc1b005e856e5a2
     Description: Enter valid ami id
+
+  ProfileName:
+    Default: dev
+    Type: String
+    Description: Enter the profile that you want this to run on either dev or demo
+  
+  SecretKey:
+    Default: AKIA3HNBQAIDIABQ4OMJ
+    Type: String
+    Description: Enter secret key
+  
+  AccessKey:
+    Default: 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
+    Type: String
+    Description: Enter access key
   
 
 Resources:
@@ -45,43 +79,109 @@ Resources:
     Properties:
       Tags:
       - Key: Name
-        Value: !Sub ${AWS::StackName}-IGW
+        Value: IGW
   InternetGatewayAttach:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties: 
       InternetGatewayId: !Ref myInternetGateway
       VpcId: !Ref VPC
 
-  myPublicSubnetA:
+  myPublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: !Select  [0, !GetAZs '' ]
-      CidrBlock: !Ref PublicSubnetACIDR
+      CidrBlock: !Ref PublicSubnet1CIDR
       Tags:
       - Key: Name
-        Value: !Sub ${AWS::StackName}-subnet-A
+        Value: !Sub ${AWS::StackName}-subnet-1
       VpcId: !Ref VPC 
 
-  myPublicSubnetB:
+  myPublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: !Select  [1, !GetAZs '' ]
-      CidrBlock: !Ref PublicSubnetBCIDR
+      CidrBlock: !Ref PublicSubnet2CIDR
       Tags:
       - Key: Name
-        Value: !Sub ${AWS::StackName}-subnet-B
+        Value: !Sub ${AWS::StackName}-subnet-2
       VpcId: !Ref VPC     
 
-  myPublicSubnetC:
+  myPublicSubnet3:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: !Select  [2, !GetAZs '' ]
-      CidrBlock: !Ref PublicSubnetCCIDR
+      CidrBlock: !Ref PublicSubnet3CIDR
       Tags:
       - Key: Name
-        Value: !Sub ${AWS::StackName}-subnet-C
+        Value: !Sub ${AWS::StackName}-subnet-3
       VpcId: !Ref VPC     
 
+  #Private subnets
+
+  myPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select  [0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Private-subnet-1
+      VpcId: !Ref VPC 
+
+  myPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select  [1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Private-subnet-2
+      VpcId: !Ref VPC 
+
+  myPrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select  [2, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Private-subnet-3
+      VpcId: !Ref VPC 
+
+
+  # Private route
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+       - Key: Name
+         Value: !Sub ${AWS::StackName}-private
+  
+
+#Private subnet association 
+
+  myPrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref myPrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  myPrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref myPrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+ 
+  myPrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref myPrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable
+
+
+# Public route
   myRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -100,23 +200,25 @@ Resources:
       
       
 
-  mySubnetARouteTableAssociation:
+  mySubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref myPublicSubnetA
+      SubnetId: !Ref myPublicSubnet1
       RouteTableId: !Ref myRouteTable
 
-  mySubnetBRouteTableAssociation:
+  mySubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref myPublicSubnetB
+      SubnetId: !Ref myPublicSubnet2
       RouteTableId: !Ref myRouteTable
 
-  mySubnetCRouteTableAssociation:
+  mySubnet3RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref myPublicSubnetC
+      SubnetId: !Ref myPublicSubnet3
       RouteTableId: !Ref myRouteTable
+
+  
   myapplicationSecuritygroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -142,10 +244,190 @@ Resources:
       Tags:
       - Key: Name
         Value: application
+
+  #Database security group
+  DatabaseSecurityGroup:
+    DependsOn:
+     - myPrivateSubnet1
+     - myPrivateSubnet2
+     - myPrivateSubnet3
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: database access
+      SecurityGroupIngress: 
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        SourceSecurityGroupId: !Ref myapplicationSecuritygroup
+      Tags:
+      - Key: Name
+        Value: database
+      VpcId: !Ref VPC
+
+  #S3 bucket creation 
+  S3bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Join
+        - "."
+        - - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+          - Ref: "ProfileName"
+          - "sshreeka.me"
+      AccessControl: Private
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+        - Id: Rule for S3 bucket
+          Prefix: S3 images
+          Status: Enabled
+          Transitions:
+            - TransitionInDays: 30
+              StorageClass: STANDARD_IA
+
+
+#RDS parameter group 
+  RDSDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: My sql DB
+      Family: mysql8.0
+      Tags: 
+        - Key: Name
+          Value: mysqlRDSparameter
+
+#RDS subnet      
+  RdsDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet Group for mySQL database
+      SubnetIds: 
+        - Ref: myPrivateSubnet1
+        - Ref: myPrivateSubnet2
+        - Ref: myPrivateSubnet3
+
+#RDS MySQL instance
+  MySqlDbInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: csye6225
+      MasterUsername: csye6225
+      MasterUserPassword: Shreekar_123
+      Engine: mysql
+      EngineVersion : 8.0.28
+      DBInstanceClass: db.t3.micro
+      DBSubnetGroupName: !Ref RdsDBSubnetGroup
+      StorageType: gp2
+      PubliclyAccessible: False
+      AllocatedStorage: "20"
+      #DBSecurityGroups: !Ref DatabaseSecurityGroup
+      VPCSecurityGroups:
+            - !GetAtt "DatabaseSecurityGroup.GroupId"
+            - !Ref DatabaseSecurityGroup
+      DBInstanceIdentifier: "csye6225"
+      MultiAZ: False
+
+
+
+  RootRole:
+
+    Type: "AWS::IAM::Role"
+
+    Properties:
+
+      RoleName: "EC2-CSYE6225"
+
+      # Policies:
+
+      #   - Ref: RolePolicies
+
+      AssumeRolePolicyDocument:
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          -
+
+            Effect: "Allow"
+
+            Principal:
+
+              Service:
+
+                - "ec2.amazonaws.com"
+
+            Action:
+
+              - "sts:AssumeRole"
+
+      Path: "/"
+
+  DemoInstanceProfile:
+
+    Type: AWS::IAM::InstanceProfile
+
+    Properties:
+
+      InstanceProfileName: demo-ec2-instance-profile
+
+      Path: /
+
+      Roles:
+
+       - !Ref RootRole
+
+
+  RolePolicies:
+
+    Type: 'AWS::IAM::Policy'
+
+    Properties:
+
+      PolicyName: WebAppS3
+
+      PolicyDocument:
+
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Effect: Allow
+
+            Action:
+
+              - 's3:Put*'
+
+              - 's3:Get*'
+
+              - 's3:Delete*'
+
+            Resource:
+
+              -  !Sub arn:aws:s3:::${S3bucket}
+
+              -  !Sub arn:aws:s3:::${S3bucket}/*
+
+      Roles:
+
+        - Ref: RootRole
+
+  #Ec2 instance              
   ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Ref AMIImage 
+      IamInstanceProfile: !Ref DemoInstanceProfile
+      ImageId: !Ref AMIImage
       InstanceType: t2.micro
       KeyName: sshreeka
       NetworkInterfaces: 
@@ -154,4 +436,29 @@ Resources:
         GroupSet: 
           - Ref: myapplicationSecuritygroup
         SubnetId: 
-          Ref: myPublicSubnetA
+          Ref: myPublicSubnet1
+      UserData: 
+        Fn::Base64: 
+            !Sub |
+            #!/bin/bash
+            echo export RDS="${MySqlDbInstance.Endpoint.Address}" >> /etc/profile
+            echo export SQL_ROOT="csye6225" >> /etc/profile
+            echo export SQL_PASS="Shreekar_123" >> /etc/profile
+            echo export bucket="${S3bucket}" >> /etc/profile
+            echo export access_key="${AccessKey}" >> /etc/profile
+            echo export secret_key="${SecretKey}" >> /etc/profile
+            echo export DB="csye6225" >> /etc/profile
+            echo export region="us-east-1" >> /etc/profile
+            echo Environment=\"RDS=${MySqlDbInstance.Endpoint.Address}\" >> /tmp/app.service
+            echo Environment=\"SQL_ROOT=csye6225\" >> /tmp/app.service
+            echo Environment=\"SQL_PASS=Shreekar_123\" >> /tmp/app.service
+            echo Environment=\"bucket=${S3bucket}\" >> /tmp/app.service
+            echo Environment=\"access_key=${AccessKey}\" >> /tmp/app.service
+            echo Environment=\"secret_key=${SecretKey}\" >> /tmp/app.service
+            echo Environment=\"region=us-east-1\" >> /tmp/app.service
+            echo Environment=\"DB=csye6225\" >> /tmp/app.service
+            sudo cp /tmp/app.service /etc/systemd/system/
+            sudo systemctl daemon-reload
+            sudo systemctl enable app.service
+            sudo systemctl start app.service
+            sudo systemctl status app.service
