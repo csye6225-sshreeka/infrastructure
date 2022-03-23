@@ -8,7 +8,6 @@ Parameters:
     Default: 10.0.0.0/16
     Description: Enter the IP range (CIDR notation) for VPC
     Type: String
-  
   PublicSubnet1CIDR:
     Default: 10.0.0.0/24
     Description: Enter the IP range (CIDR notation) for public subnet 1
@@ -43,7 +42,7 @@ Parameters:
     Type: String
 
   AMIImage:
-    Default: ami-007405ff7d42df2f6
+    Default: ami-0ddacd1d7e7d5a146
     Type: String
     Description: Enter valid ami id
 
@@ -53,15 +52,19 @@ Parameters:
     Description: Enter the profile that you want this to run on either dev or demo
   
   SecretKey:
-    Default: AKIA3HNBQAIDIABQ4OMJ
+    Default: AKIAX6SPJCQYNQQ6RHKC
     Type: String
     Description: Enter secret key
   
   AccessKey:
-    Default: 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
+    Default: yAIG3RLHhib1kS5y+ypb0kEWbJ+32IWq4UCPg66z
     Type: String
     Description: Enter access key
   
+  DNSName:
+    Type: String
+    Default: "dev.sshreeka.me."
+
 
 Resources:
   VPC:
@@ -222,24 +225,19 @@ Resources:
   myapplicationSecuritygroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: myapplicationSecuritygroup
       GroupDescription: Allow http/Https and ssh to Ec2 
       SecurityGroupIngress:
       - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
-        FromPort: 443
-        ToPort: 443
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 0.0.0.0/0
+    #  CidrIp: 0.0.0.0/0
+        SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
       - IpProtocol: tcp
         FromPort: 8083
         ToPort: 8083
-        CidrIp: 0.0.0.0/0
+       # CidrIp: 0.0.0.0/0
+        SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
       VpcId: !Ref VPC
       Tags:
       - Key: Name
@@ -282,6 +280,11 @@ Resources:
           - Ref: "ProfileName"
           - "sshreeka.me"
       AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
       BucketEncryption: 
         ServerSideEncryptionConfiguration: 
           - ServerSideEncryptionByDefault:
@@ -327,6 +330,7 @@ Resources:
       EngineVersion : 8.0.28
       DBInstanceClass: db.t3.micro
       DBSubnetGroupName: !Ref RdsDBSubnetGroup
+      DBParameterGroupName: !Ref RDSDBParameterGroup
       StorageType: gp2
       PubliclyAccessible: False
       AllocatedStorage: "20"
@@ -406,11 +410,11 @@ Resources:
 
             Action:
 
-              - 's3:Put*'
+              - 's3:PutObject'
 
-              - 's3:Get*'
+              - 's3:GetObject'
 
-              - 's3:Delete*'
+              - 's3:DeleteObject'
 
             Resource:
 
@@ -422,43 +426,202 @@ Resources:
 
         - Ref: RootRole
 
-  #Ec2 instance              
-  ec2Instance:
-    Type: AWS::EC2::Instance
+
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      IamInstanceProfile: !Ref DemoInstanceProfile
       ImageId: !Ref AMIImage
+      IamInstanceProfile: !Ref DemoInstanceProfile
       InstanceType: t2.micro
       KeyName: sshreeka
-      NetworkInterfaces: 
-      - AssociatePublicIpAddress: "true"
-        DeviceIndex: "0"
-        GroupSet: 
-          - Ref: myapplicationSecuritygroup
-        SubnetId: 
-          Ref: myPublicSubnet1
-      UserData: 
-        Fn::Base64: 
+      # BlockDeviceMappings:
+      # - DeviceName: /dev/sda1
+      #   Ebs:
+      #     VolumeSize: 30
+      #     VolumeType: "gp3"
+      AssociatePublicIpAddress: "true"
+      SecurityGroups:
+      - !Ref myapplicationSecuritygroup     
+      UserData:
+          Fn::Base64: 
             !Sub |
             #!/bin/bash
             echo export RDS="${MySqlDbInstance.Endpoint.Address}" >> /etc/profile
             echo export SQL_ROOT="csye6225" >> /etc/profile
             echo export SQL_PASS="Shreekar_123" >> /etc/profile
             echo export bucket="${S3bucket}" >> /etc/profile
-            echo export access_key="${AccessKey}" >> /etc/profile
-            echo export secret_key="${SecretKey}" >> /etc/profile
             echo export DB="csye6225" >> /etc/profile
             echo export region="us-east-1" >> /etc/profile
             echo Environment=\"RDS=${MySqlDbInstance.Endpoint.Address}\" >> /tmp/app.service
             echo Environment=\"SQL_ROOT=csye6225\" >> /tmp/app.service
             echo Environment=\"SQL_PASS=Shreekar_123\" >> /tmp/app.service
             echo Environment=\"bucket=${S3bucket}\" >> /tmp/app.service
-            echo Environment=\"access_key=${AccessKey}\" >> /tmp/app.service
-            echo Environment=\"secret_key=${SecretKey}\" >> /tmp/app.service
             echo Environment=\"region=us-east-1\" >> /tmp/app.service
             echo Environment=\"DB=csye6225\" >> /tmp/app.service
             sudo cp /tmp/app.service /etc/systemd/system/
             sudo systemctl daemon-reload
             sudo systemctl enable app.service
             sudo systemctl start app.service
-            sudo systemctl status app.service
+            sudo systemctl status app.service    
+             
+  asgWebApp:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${AWS::StackName}-asg
+      AvailabilityZones:
+        - us-east-1a
+        - us-east-1b
+        - us-east-1c
+      Cooldown: '60'
+      DesiredCapacity: '3'
+      HealthCheckGracePeriod: 90
+      HealthCheckType: EC2
+      LaunchConfigurationName: !Ref LaunchConfig
+      MaxSize: '5'
+      MinSize: '1'
+      Tags:
+        - Key: Application
+          Value: WebApp
+          PropagateAtLaunch: "true"
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-asg
+          PropagateAtLaunch: "true"
+      TargetGroupARNs:
+        - !Ref loadBalancerTargetGroup
+      VPCZoneIdentifier:
+        - Ref: myPublicSubnet1
+        - Ref: myPublicSubnet2
+        - Ref: myPublicSubnet3
+
+ 
+  #loadbalanceSecuritygroup
+  myloadbalancerSecuritygroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: myloadbalancerSecuritygroup
+      GroupDescription: Allow http/https access to load balancer
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: load balancer
+  loadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      Name: !Sub ${AWS::StackName}-load-balancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - Ref: myloadbalancerSecuritygroup
+      Subnets:
+        - Ref: myPublicSubnet1
+        - Ref: myPublicSubnet2
+        - Ref: myPublicSubnet3
+      Tags:
+        - Key: Application
+          Value: WebApp
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-load-balancer
+      Type: application
+ 
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '4'
+      AlarmDescription: Alarm if CPU utilization more than 4%
+      Period: '300'
+      AlarmActions:
+      - !Ref ScaleOutPolicy
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref asgWebApp
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '2'
+      AlarmDescription: Alarm if CPU utilization is less than 2%
+      Period: '300'
+      AlarmActions:
+      - !Ref ScaleInPolicy
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref asgWebApp
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+  ScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref asgWebApp
+      Cooldown: 60
+      ScalingAdjustment: 1
+  ScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref asgWebApp
+      Cooldown: 60
+      ScalingAdjustment: -1
+  loadBalancerTargetGroup:
+    DependsOn: loadBalancer
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 90
+      HealthCheckPath: '/healthz'
+      HealthCheckPort: 8083
+      HealthCheckProtocol: 'HTTP'
+      HealthCheckTimeoutSeconds: 60
+      HealthyThresholdCount: 2
+      IpAddressType: ipv4
+      Name: !Sub ${AWS::StackName}-lb-tg
+      Port: 8083
+      Protocol: 'HTTP'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lb-tg
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '20'
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+  loadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref loadBalancerTargetGroup
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 80
+      Protocol: HTTP
+  DNSRecord:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Ref DNSName
+      Comment: Zone apex alias targeted to LoadBalancer.
+      RecordSets:
+      - Name: !Ref DNSName
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt 'loadBalancer.CanonicalHostedZoneID'
+          DNSName: !GetAtt 'loadBalancer.DNSName'
+
