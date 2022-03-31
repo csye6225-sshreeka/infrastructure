@@ -231,7 +231,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-      #  CidrIp: 0.0.0.0/0
+       # CidrIp: 0.0.0.0/0
         SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
       - IpProtocol: tcp
         FromPort: 8083
@@ -428,6 +428,7 @@ Resources:
             
       Roles:
         - Ref: CodeDeployEC2ServiceRole  
+
   RolePolicies:
 
     Type: 'AWS::IAM::Policy'
@@ -460,7 +461,7 @@ Resources:
 
       Roles:
 
-        - Ref: RootRole
+        - Ref: CodeDeployEC2ServiceRole
 
 
   LaunchConfig:
