@@ -42,7 +42,7 @@ Parameters:
     Type: String
 
   AMIImage:
-    Default: ami-040fdb6ad7c97189f
+    Default: ami-044c8300ce8462a34
     Type: String
     Description: Enter valid ami id
 
