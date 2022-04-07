@@ -42,7 +42,7 @@ Parameters:
     Type: String
 
   AMIImage:
-    Default: ami-044c8300ce8462a34
+    Default: ami-00b41c8ec1ce6063c
     Type: String
     Description: Enter valid ami id
 
@@ -409,6 +409,7 @@ Resources:
               - "sts:AssumeRole"
       Path: "/"
 
+
   CodeDeployEC2S3:
     Type: 'AWS::IAM::Policy'
     Properties:
@@ -428,6 +429,39 @@ Resources:
             
       Roles:
         - Ref: CodeDeployEC2ServiceRole  
+
+
+
+  CloudWatchAgentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "EC2CloudWatchPolicy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudwatch:PutMetricData'
+              - 'ec2:DescribeTags'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+              - 'logs:DescribeLogGroups'
+              - 'logs:CreateLogStream'
+              - 'logs:CreateLogGroup'
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - 'ssm:GetParameter'
+              - 'ssm:PutParameter'
+            Resource: "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
+      Roles:
+        - Ref: CodeDeployEC2ServiceRole  
+
+  myLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: csye6225
+      RetentionInDays: 7
 
   RolePolicies:
 
