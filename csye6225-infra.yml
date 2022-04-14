@@ -231,8 +231,8 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-       # CidrIp: 0.0.0.0/0
-        SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
+        CidrIp: 0.0.0.0/0
+        #SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
       - IpProtocol: tcp
         FromPort: 8083
         ToPort: 8083
@@ -864,3 +864,305 @@ Resources:
          Value: !Sub '${AWS::StackName}-asg'
          Type: "KEY_AND_VALUE"
 
+  NotificationSNS:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "MailNotification"
+      Subscription:
+        - Protocol: lambda
+          Endpoint: !GetAtt LambdaFunction.Arn
+
+  LambdaFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+      Path: "/"
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "csye6225-spring2022"
+      MemorySize: 512
+      Handler: "com.sshreeka.serverless.serverless.EmailNotification::handleRequest"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: sshreeka-serverless
+        S3Key: "serverless-1.0.0.jar"
+      Runtime: "java11"
+      Timeout: 59
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref NotificationSNS
+      FunctionName: !GetAtt LambdaFunction.Arn
+
+  TokenTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "emailID"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "emailID"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      TableName: "TokenTable"
+
+  DynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "emailID"
+          AttributeType: "S"
+        # - AttributeName: "Token"
+        #   AttributeType: "N"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "7"
+        WriteCapacityUnits: "7"
+      KeySchema:
+        - AttributeName: "emailID"
+          KeyType: "HASH"
+        # - AttributeName: "Token"
+        #   KeyType: "RANGE"
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true
+      TableName: "UsernameTokenTable"
+
+  DynamoDBPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: DynamoDBPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:PutItem'
+                - 'dynamodb:GetItem'
+                - 'dynamodb:PutItem'
+                - 'dynamodb:DescribeTable'
+                - 'dynamodb:Get*'
+                - 'dynamodb:Query'
+                - 'dynamodb:Scan'
+                - 'dynamodb:Delete*'
+                - 'dynamodb:CreateTable'
+                - 'dynamodb:Update*'
+                - 'dynamodb:BatchWrite*'
+                - 'dynamodb:DescribeStream'
+                - 'dynamodb:BatchGet*'
+                - 'dynamodb:List*'
+                - 'dynamodb:DescribeReservedCapacity*'
+                - 'dynamodb:DescribeLimits'
+                - 'dynamodb:DescribeTimeToLive'
+              Resource:
+                - !GetAtt DynamoDB.Arn
+        Roles:
+          - !Ref CodeDeployEC2ServiceRole
+
+  EC2SNSPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: EC2SNSPolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sns:*
+                - sns:Publish
+                - sns:GetTopicAttributes
+                - sns:ListTopics
+                - sns:CreateTopic
+              Resource:
+                - "*"
+        Roles:
+          - !Ref CodeDeployEC2ServiceRole
+  # SNStopicpolicy:
+  #   Type: AWS::SNS::TopicPolicy
+  #   Properties:
+  #     PolicyDocument:
+  #       Version: '2008-10-17'
+  #       Id: __default_policy_ID
+  #       Statement:
+  #       - Sid: __default_statement_ID
+  #         Effect: Allow
+  #         Principal:
+  #           AWS: "*"
+  #         Action:
+  #         - SNS:Publish
+  #         - SNS:DeleteTopic
+  #         - SNS:ListSubscriptionsByTopic
+  #         - SNS:GetTopicAttributes
+  #         - SNS:Receive
+  #         - SNS:AddPermission
+  #         - SNS:Subscribe
+  #         Resource:
+  #           Ref: NotificationSNS
+  #         Condition:
+  #           StringEquals:
+  #             AWS:SourceOwner: !Ref AWS::AccountId
+  #       - Sid: __console_pub_0
+  #         Effect: Allow
+  #         Principal:
+  #           AWS: "*"
+  #         Action: SNS:Publish
+  #         Resource:
+  #           Ref: NotificationSNS
+  #       - Sid: __console_sub_0
+  #         Effect: Allow
+  #         Principal:
+  #           AWS: "*"
+  #         Action:
+  #         - SNS:Subscribe
+  #         - SNS:Receive
+  #         Resource:
+  #           Ref: NotificationSNS
+  #     Topics:
+  #     - Ref: NotificationSNS
+      
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+#      ManagedPolicyArns:
+#        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaCloudWatchPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:PutLogEvents
+              - logs:GetLogEvents
+              - logs:CreateLogStream
+
+            Resource:
+              - arn:aws:logs:us-east-1:771822191110:*
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource:
+              - "arn:aws:ses:us-east-1:771822191110:identity/demo.sshreeka.me"
+      Roles:
+        - !Ref LambdaExecutionRole
+
+  CodeDeployEC2S3Lam:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "CodeDeploy-EC2-S3-lamb"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:PutObject
+              - s3:ListBucket
+            Resource:
+              - "arn:aws:s3:::sshreeka-serverless"
+              - "arn:aws:s3:::sshreeka-serverless/*"
+      Users:
+        - "ghactions-app-lambda"
+
+          
+  GHUploadToS3LamB:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "GH-Upload-To-S3-lam"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObjectAcl
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:PutObject
+              - s3:ListBucket
+            Resource:
+              - "arn:aws:s3:::sshreeka-serverless"
+              - "arn:aws:s3:::sshreeka-serverless/*"
+      Users:
+        - "ghactions-app-lambda"
+
+  GHCodeDeployLamda:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "GH-Code-Deploy-lam"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - codedeploy:RegisterApplicationRevision
+              - codedeploy:GetApplicationRevision
+              - codedeploy:GetDeployment
+            Resource:
+              - "arn:aws:codedeploy:us-east-1:771822191110:application:csye6225-webapp"
+          - Effect: Allow
+            Action:
+              - codedeploy:CreateDeployment
+              - codedeploy:GetDeployment
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - codedeploy:GetDeploymentConfig
+            Resource:
+              - 'arn:aws:codedeploy:us-east-1:771822191110:deploymentconfig:CodeDeployDefault.OneAtATime'
+              - 'arn:aws:codedeploy:us-east-1:771822191110:deploymentconfig:CodeDeployDefault.HalfAtATime'
+              - 'arn:aws:codedeploy:us-east-1:771822191110:deploymentconfig:CodeDeployDefault.AllAtOnce'
+      Users:
+        - "ghactions-app-lambda"
+
+  LambdaUpdate:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'lambda:UpdateFunctionCode'
+            Resource:
+              - 'arn:aws:lambda:us-east-1:771822191110:function:csye6225-spring2022'
+      PolicyName: Github-Lambda-Updates
+      Users:
+        - ghactions-app-lambda
