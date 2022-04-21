@@ -231,8 +231,8 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 0.0.0.0/0
-        #SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
+      #  CidrIp: 0.0.0.0/0
+        SourceSecurityGroupId: !Ref myloadbalancerSecuritygroup
       - IpProtocol: tcp
         FromPort: 8083
         ToPort: 8083
