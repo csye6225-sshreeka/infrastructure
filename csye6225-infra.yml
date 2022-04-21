@@ -305,6 +305,8 @@ Resources:
     Properties: 
       Description: My sql DB
       Family: mysql8.0
+      Parameters: 
+        performance_schema: 1
       Tags: 
         - Key: Name
           Value: mysqlRDSparameter
@@ -323,7 +325,7 @@ Resources:
   MySqlDbInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBName: csye62251
+      DBName: csye6225
       MasterUsername: csye6225
       MasterUserPassword: Shreekar_123
       Engine: mysql
