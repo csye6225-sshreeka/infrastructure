@@ -340,7 +340,7 @@ Resources:
       VPCSecurityGroups:
             - !GetAtt "DatabaseSecurityGroup.GroupId"
             - !Ref DatabaseSecurityGroup
-      DBInstanceIdentifier: "csye62251"
+      DBInstanceIdentifier: "csye6225"
       MultiAZ: False
 
 
@@ -535,14 +535,14 @@ Resources:
             echo export SQL_ROOT="csye6225" >> /etc/profile
             echo export SQL_PASS="Shreekar_123" >> /etc/profile
             echo export bucket="${S3bucket}" >> /etc/profile
-            echo export DB="csye62251" >> /etc/profile
+            echo export DB="csye6225" >> /etc/profile
             echo export region="us-east-1" >> /etc/profile
             echo Environment=\"RDS=${MySqlDbInstance.Endpoint.Address}\" >> /tmp/app.service
             echo Environment=\"SQL_ROOT=csye6225\" >> /tmp/app.service
             echo Environment=\"SQL_PASS=Shreekar_123\" >> /tmp/app.service
             echo Environment=\"bucket=${S3bucket}\" >> /tmp/app.service
             echo Environment=\"region=us-east-1\" >> /tmp/app.service
-            echo Environment=\"DB=csye62251\" >> /tmp/app.service
+            echo Environment=\"DB=csye6225\" >> /tmp/app.service
             sudo cp /tmp/app.service /etc/systemd/system/
             sudo systemctl daemon-reload
             sudo systemctl enable app.service
